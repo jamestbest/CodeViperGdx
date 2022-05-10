@@ -44,11 +44,11 @@ public class MainScreen implements Screen {
     Table table;
     Label codeLabel;
     TextButton urlButton;
+    Label currentActionLabel;
 
     BufferedReader bufferedReader;
     FileReader fileReader;
 
-    String currentAction = "no folder selected";
     String docID = "";
 
     boolean showExceptions = false;
@@ -120,6 +120,11 @@ public class MainScreen implements Screen {
         return title;
     }
 
+    public Label setupCurrentActionLabel(){
+        currentActionLabel = new Label("no folder selected", skin);
+        return currentActionLabel;
+    }
+
     public TextButton setupInputButton(){
         TextButton addInputButton;
         addInputButton = new TextButton("Add Input", skin);
@@ -130,15 +135,27 @@ public class MainScreen implements Screen {
                 if (inputEvent.getType() == InputEvent.Type.touchDown){
                     String file = getJavaFile();
                     if (file != null){
+                        updateCurrentAction("reading file");
                         String fileContents = readFile(file);
 
+                        updateCurrentAction("updating scroll box");
                         updateCodeLabel(fileContents);
-                        String docID = CodeSponge.fragmentCode(fileContents, new CodeSponge.Settings(showConstructors, showExceptions));
 
-                        if (!Objects.equals(docID, "")){
-                            this.docID = docID;
-                            urlButton.setVisible(true);
-                        }
+                        updateCurrentAction("creating thread");
+                        Thread t = new Thread(() -> {
+                            updateCurrentAction("fragmenting code");
+                            String docID = CodeSponge.fragmentCode(fileContents, new CodeSponge.Settings(showConstructors, showExceptions), this);
+
+                            if (!Objects.equals(docID, "")) {
+                                this.docID = docID;
+                                urlButton.setVisible(true);
+                                addInputButton.setVisible(true);
+                            }
+                            updateCurrentAction("document created");
+                        });
+                        t.start();
+
+                        addInputButton.setVisible(false);
                     }
                 }
             }
@@ -168,12 +185,12 @@ public class MainScreen implements Screen {
 
 //    public void
 
-    public void updateCurrentAction(){
-        codeLabel.setText(currentAction);
+    public void updateCurrentAction(String currentAction){
+        currentActionLabel.setText(currentAction);
     }
 
     public Label setupCodeLabel(){
-        codeLabel = new Label(currentAction, skin);
+        codeLabel = new Label("code will appear when file loaded", skin);
         codeLabel.setWrap(true);
         codeLabel.setFontScale(0.5f);
         codeLabel.setPosition(Gdx.graphics.getWidth()/2f - codeLabel.getWidth()/2f, Gdx.graphics.getHeight() - codeLabel.getHeight() * 2);
@@ -225,8 +242,10 @@ public class MainScreen implements Screen {
 
         table.setPosition(0, stage.getHeight());
 
-        Label t = setupTitle();
-        table.add(t).padBottom(30);
+        table.add(setupTitle()).padBottom(30);
+        table.row();
+
+        table.add(setupCurrentActionLabel()).expandX().left().padBottom(10);
         table.row();
 
         table.add(setupInputButton()).expandX().left().padBottom(5);
@@ -275,7 +294,7 @@ public class MainScreen implements Screen {
 
     public String getJavaFile(){
         JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setCurrentDirectory(new File("C:\\Users\\rscow\\IdeaProjects\\CodeViperGdx\\core\\src\\com\\mygdx\\game"));
+        fileChooser.setCurrentDirectory(new File(FileSystems.getDefault().getPath("").toAbsolutePath() + "/core/src/com/mygdx/game"));
         System.out.println(fileChooser.getCurrentDirectory() + " is the current directory");
         FileFilter filter = new FileNameExtensionFilter("Java file","java");
         fileChooser.setAcceptAllFileFilterUsed(false);

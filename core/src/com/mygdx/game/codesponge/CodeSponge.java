@@ -1,6 +1,8 @@
 package com.mygdx.game.codesponge;
 
 import com.mygdx.game.DocsQuickstart;
+import com.mygdx.game.MainScreen;
+import com.sun.tools.javac.Main;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -34,12 +36,12 @@ public class CodeSponge {
 
     static boolean isInner = false;
 
-    public static String fragmentCode(String code, Settings settings) {
+    public static String fragmentCode(String code, Settings settings, MainScreen mainScreen) {
         String[] lines = code.split("\n");
-        return fragmentCode(lines, settings);
+        return fragmentCode(lines, settings, mainScreen);
     }
 
-    public static String fragmentCode(String[] lines, Settings settings) {
+    public static String fragmentCode(String[] lines, Settings settings, MainScreen mainScreen) {
         StringBuilder multilineStore = new StringBuilder();
 
         String innerTo = "";
@@ -111,19 +113,14 @@ public class CodeSponge {
             }
         }
 
+        mainScreen.updateCurrentAction("creating document");
         try {
             return DocsQuickstart.createFullDoc(classes, settings);
         } catch (IOException | GeneralSecurityException e) {
             e.printStackTrace();
+            mainScreen.updateCurrentAction("error whilst creating document");
         }
         return "";
-    }
-
-    public static int handleInner(String[] lines, Settings  settings){
-        int endIndex = findInnerEndIndex(lines);
-        String[] innerLines = findInnerStrings(endIndex, lines);
-        fragmentCode(innerLines, settings);
-        return endIndex;
     }
 
     public static String[] findInnerStrings(int endIndex, String[] lines){
