@@ -23,6 +23,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.Objects;
 
 public class MainScreen implements Screen {
@@ -40,7 +42,7 @@ public class MainScreen implements Screen {
     Skin skin;
 
     Table table;
-    Label lotsOfText;
+    Label codeLabel;
     TextButton urlButton;
 
     BufferedReader bufferedReader;
@@ -130,7 +132,7 @@ public class MainScreen implements Screen {
                     if (file != null){
                         String fileContents = readFile(file);
 
-                        updateLotsOfText(fileContents);
+                        updateCodeLabel(fileContents);
                         String docID = CodeSponge.fragmentCode(fileContents, new CodeSponge.Settings(showConstructors, showExceptions));
 
                         if (!Objects.equals(docID, "")){
@@ -164,26 +166,27 @@ public class MainScreen implements Screen {
         return urlButton;
     }
 
+//    public void
+
     public void updateCurrentAction(){
-        lotsOfText.setText(currentAction);
+        codeLabel.setText(currentAction);
     }
 
-    public Label setupLotsOfText(){
-        lotsOfText = new Label(currentAction, skin);
-        lotsOfText.setWrap(true);
-        lotsOfText.setFontScale(0.5f);
-        lotsOfText.setPosition(Gdx.graphics.getWidth()/2f - lotsOfText.getWidth()/2f, Gdx.graphics.getHeight() - lotsOfText.getHeight() * 2);
-        stage.addActor(lotsOfText);
-        return lotsOfText;
+    public Label setupCodeLabel(){
+        codeLabel = new Label(currentAction, skin);
+        codeLabel.setWrap(true);
+        codeLabel.setFontScale(0.5f);
+        codeLabel.setPosition(Gdx.graphics.getWidth()/2f - codeLabel.getWidth()/2f, Gdx.graphics.getHeight() - codeLabel.getHeight() * 2);
+        return codeLabel;
     }
 
-    public void updateLotsOfText(String text){
-        lotsOfText.setText(text);
+    public void updateCodeLabel(String text){
+        codeLabel.setText(text);
     }
 
     public ScrollPane setupScrollPane(){
         ScrollPane scrollPane;
-        scrollPane = new ScrollPane(setupLotsOfText(), skin);
+        scrollPane = new ScrollPane(setupCodeLabel(), skin);
         int offset = 15;
         scrollPane.setSize(Gdx.graphics.getWidth() * 0.65f, Gdx.graphics.getHeight() * 0.9f);
         scrollPane.setPosition(Gdx.graphics.getWidth() - scrollPane.getWidth() - offset, offset);
@@ -197,6 +200,22 @@ public class MainScreen implements Screen {
         stage.addActor(toggleBox);
 
         return toggleBox;
+    }
+
+    public void setupTextButton(String text, Runnable runnable){
+        TextButton button = new TextButton(text, skin);
+        button.setSize(Gdx.graphics.getWidth() * 0.25f, Gdx.graphics.getHeight() * 0.1f);
+        button.pack();
+        button.setPosition(0, 0);
+
+        button.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                runnable.run();
+            }
+       });
+
+        stage.addActor(button);
     }
 
     public void setupTable(){
@@ -236,13 +255,27 @@ public class MainScreen implements Screen {
 
         table.add(constructors).expandX().left();
 
+        setupTextButton("Delete Credentials", this::deleteCreds);
+
         table.setDebug(true);
         stage.addActor(table);
     }
 
+    public void deleteCreds(){
+        Path absolutePath = FileSystems.getDefault().getPath("").toAbsolutePath();
+
+        File file = new File(absolutePath + "/tokens/StoredCredential");
+        System.out.println(file.getAbsolutePath());
+        if (file.delete()) {
+            System.out.println("File deleted successfully");
+        } else {
+            System.out.println("Failed to delete file");
+        }
+    }
+
     public String getJavaFile(){
         JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setCurrentDirectory(new File("C:\\Users\\jamescoward\\Desktop\\Java\\CodeViperGdx\\core\\src\\com\\mygdx\\game"));
+        fileChooser.setCurrentDirectory(new File("C:\\Users\\rscow\\IdeaProjects\\CodeViperGdx\\core\\src\\com\\mygdx\\game"));
         System.out.println(fileChooser.getCurrentDirectory() + " is the current directory");
         FileFilter filter = new FileNameExtensionFilter("Java file","java");
         fileChooser.setAcceptAllFileFilterUsed(false);

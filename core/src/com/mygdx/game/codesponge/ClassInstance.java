@@ -3,7 +3,7 @@ package com.mygdx.game.codesponge;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class ClassInstance extends Instance implements Comparable<ClassInstance>, Cloneable {
+public class ClassInstance extends Instance{
     public ArrayList<MethodInstance> methods;
     public ArrayList<VariableInstance> variables;
 
@@ -84,21 +84,5 @@ public class ClassInstance extends Instance implements Comparable<ClassInstance>
 
     public void setImplementedInterfaces(ArrayList<String> implementedInterfaces) {
         this.implementedInterfaces = implementedInterfaces;
-    }
-
-    @Override
-    public int compareTo(ClassInstance o) {
-        return 0;
-    }
-
-    @Override
-    public ClassInstance clone() {
-        try {
-            ClassInstance clone = (ClassInstance) super.clone();
-            // TODO: copy mutable state here, so the clone can't change the internals of the original
-            return clone;
-        } catch (CloneNotSupportedException e) {
-            throw new AssertionError();
-        }
     }
 }

@@ -438,12 +438,17 @@ public class CodeSponge {
     }
 
     public static class Settings{
-        private boolean showConstructors = false;
-        private boolean showExceptions = false;
+        private boolean showConstructors;
+        private boolean showExceptions;
 
         public Settings(boolean showConstructors, boolean showExceptions){
             this.showConstructors = showConstructors;
             this.showExceptions = showExceptions;
+        }
+
+        public Settings(){
+            this.showConstructors = false;
+            this.showExceptions = false;
         }
 
         public boolean isShowConstructors() {
