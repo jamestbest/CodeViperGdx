@@ -14,7 +14,9 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import com.mygdx.game.codesponge.ClassInstance;
 import com.mygdx.game.codesponge.CodeSponge;
+import com.mygdx.game.codesponge.CodeSpongeTwo;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
@@ -25,6 +27,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Objects;
 
 public class MainScreen implements Screen {
@@ -141,9 +144,13 @@ public class MainScreen implements Screen {
                         updateCurrentAction("updating scroll box");
                         updateCodeLabel(fileContents);
 
+                        ArrayList<ClassInstance> classes = CodeSpongeTwo.fragment_class(fileContents);
+                        System.out.println("this is the number of classes: " + classes.size());
+
                         updateCurrentAction("creating thread");
                         Thread t = new Thread(() -> {
                             updateCurrentAction("fragmenting code");
+
                             String docID = CodeSponge.fragmentCode(fileContents, new CodeSponge.Settings(showConstructors, showExceptions), this);
 
                             if (!Objects.equals(docID, "")) {

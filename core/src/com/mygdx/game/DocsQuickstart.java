@@ -24,7 +24,7 @@ import java.util.*;
 import java.util.List;
 
 /* class to demonstarte use of Docs get documents API */
-public class DocsQuickstart {
+public /* this is a comment badly placed */ class DocsQuickstart { //this is a comment on a class //this is another comment in a comment
     /** Application name. */
     private static final String APPLICATION_NAME = "Google Docs API Java Quickstart";
     /** Global instance of the JSON factory. */
@@ -49,6 +49,9 @@ public class DocsQuickstart {
      */
     private static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT) throws IOException {
         // Load client secrets.
+
+        System.out.println("This is a quote \"this is a quote inside a quote\"");
+
         InputStream in = DocsQuickstart.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
         if (in == null) {
             throw new FileNotFoundException("Resource not found: " + CREDENTIALS_FILE_PATH);
@@ -66,24 +69,17 @@ public class DocsQuickstart {
         return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
     }
 
-    public static void main(String... args) throws IOException, GeneralSecurityException {
-        // Build a new authorized API client service.
-        final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
-        Docs service = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
-                .setApplicationName(APPLICATION_NAME)
-                .build();
-
-        createDoc(service);
-    }
-
     public static String createFullDoc(ArrayList<ClassInstance> classes, CodeSponge.Settings settings) throws IOException, GeneralSecurityException {
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         Docs service = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
                 .setApplicationName(APPLICATION_NAME)
                 .build();
 
+        //creates the document
         String docId = createDoc(service);
         for (ClassInstance c : classes) {
+            //loops through every class and creates two tables, one for the methods
+            //and one for the attributes
             createEntireTableTemplate(docId, service, c, settings);
         }
 
@@ -124,7 +120,7 @@ public class DocsQuickstart {
         BatchUpdateDocumentResponse batchUpdateResponse = service.documents().batchUpdate(docID, batchUpdateRequest).execute();
 
         //get the updated document
-        Document doc = service.documents().get(docID).execute();
+//        Document doc = service.documents().get(docID).execute();
 
         //clear requests
         requests.clear();
@@ -133,14 +129,23 @@ public class DocsQuickstart {
         int tableIndex = tableAddIndex + 1;
         int cellOneIndex = tableIndex + 3;
 
-        //add the data
+        //The google docs api recommends a method of requests called 'writting backwards'
+        //because the indexes increment when something is added it makes adding things in order
+        //more difficult as if you add 'hello' to index 1 and then try to add 'goodbye' to index 2
+        //it will create 'hgoodbyeello' as the next index should instead be 1 + len('hello') = 6
+        //this problem is exacerbated when using tables and so instead you add to the end of the table
+        //first and then move backwards. I do not like this method.
+
+        //add the variables to the table
         for (int i = cI.variables.size() - 1; i > -1 ; i--) {
             VariableInstance vI = cI.variables.get(i);
             requests.addAll(addVariableToTable(vI, cellOneIndex, i + 2, colCount));
         }
 
         //add the headers
-        String[] headings = {"Data", "Type", "Comment"};
+        ArrayList<String> headings = new ArrayList<>(
+                List.of(new String[] {"Data", "Type", "Comment"}));
+
         requests.addAll(setupColumnHeadings(cellOneIndex, 1, colCount, headings));
 
         //send new requests
@@ -151,7 +156,13 @@ public class DocsQuickstart {
     public static void createClassMethodsTableTemplate(String docID, Docs service, ClassInstance cI, CodeSponge.Settings settings) throws IOException {
         List<Request> requests = new ArrayList<>();
 
-        int colCount = 5;
+        ArrayList<String> headings = new ArrayList<>(
+                List.of(new String[]{"Name", "Parameters", "Return Type", "Comment"}));
+        if (settings.isShowExceptions()){
+            headings.add(3, "Exceptions");
+        }
+
+        int colCount = headings.size();
 
         int tableAddLocation = 1;
 
@@ -173,10 +184,14 @@ public class DocsQuickstart {
 
         for (int i = cI.methods.size() - 1; i >= 0 ; i--) {
             MethodInstance mI = cI.methods.get(i);
-            requests.addAll(Objects.requireNonNull(addMethodToTable(mI, cellOneIndex, 4 + i, colCount)));
+            if (mI.isConstructor()){
+                if (!settings.isShowConstructors()){
+                    continue;
+                }
+            }
+            requests.addAll(Objects.requireNonNull(addMethodToTable(mI, cellOneIndex, 4 + i, colCount, settings.isShowExceptions())));
         }
 
-        String[] headings = {"Name", "Parameters", "Return Type", "exceptions", "Comment"};
         requests.addAll(Objects.requireNonNull(setupColumnHeadings(cellOneIndex, 3, colCount, headings)));
 
         requests.add(Objects.requireNonNull(addTextToTable("Methods", cellOneIndex, 2, 1, colCount)));
@@ -204,10 +219,12 @@ public class DocsQuickstart {
         return requests;
     }
 
-    public static List<Request> addMethodToTable(MethodInstance mI, int tableIndex, int rowIndex, int colCount) {
+    public static List<Request> addMethodToTable(MethodInstance mI, int tableIndex, int rowIndex, int colCount, boolean showExceptions){
         List<Request> requests = new ArrayList<>();
 
-        requests.addAll(addExceptionsToTable(mI.getExceptions(), tableIndex, rowIndex, colCount));
+        if (showExceptions) {
+            requests.addAll(addExceptionsToTable(mI.getExceptions(), tableIndex, rowIndex, colCount));
+        }
         requests.add(addTextToTable(mI.getReturnType(), tableIndex, rowIndex, 3, colCount));
         requests.addAll((addMethodParameters(mI, tableIndex, rowIndex, colCount)));
         requests.add(addTextToTable(mI.getAccessLevel() + " " + mI.getName(), tableIndex, rowIndex, 1, colCount));
@@ -255,11 +272,11 @@ public class DocsQuickstart {
         return requests;
     }
 
-    public static List<Request> setupColumnHeadings(int tableIndex, int rowIndex, int colCount, String[] headings) {
+    public static List<Request> setupColumnHeadings(int tableIndex, int rowIndex, int colCount, ArrayList<String> headings) {
         List<Request> requests = new ArrayList<>();
 
         for (int i = colCount - 1; i > -1 ; i--) {
-            requests.add(addTextToTable(headings[i], tableIndex, rowIndex, i + 1, colCount));
+            requests.add(addTextToTable(headings.get(i), tableIndex, rowIndex, i + 1, colCount));
         }
 
         return requests;
@@ -344,6 +361,16 @@ public class DocsQuickstart {
             } catch (CloneNotSupportedException e) {
                 throw new AssertionError();
             }
+        }
+    }
+
+    public static class testTwo{
+        public testTwo(){
+            System.out.println("testTwo created!");
+        }
+
+        public boolean testTwoMethod(String test){
+            return test.equals("testTwo");
         }
     }
 }
