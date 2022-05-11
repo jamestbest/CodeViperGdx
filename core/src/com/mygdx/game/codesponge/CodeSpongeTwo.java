@@ -209,6 +209,8 @@ public class CodeSpongeTwo {
             if (end_index != -1) {
                 line = line.substring(0, start_index) + line.substring(end_index + 2);
                 //2 is the length of the string */
+            }else{
+                return line;
             }
             start_index = line.indexOf("/*");
         }

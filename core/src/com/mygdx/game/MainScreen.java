@@ -15,12 +15,9 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.mygdx.game.codesponge.ClassInstance;
-import com.mygdx.game.codesponge.CodeSponge;
 import com.mygdx.game.codesponge.CodeSpongeTwo;
 
 import javax.swing.*;
-import javax.swing.filechooser.FileFilter;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -28,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 
 public class MainScreen implements Screen {
@@ -136,34 +134,64 @@ public class MainScreen implements Screen {
             if (event instanceof InputEvent){
                 InputEvent inputEvent = (InputEvent) event;
                 if (inputEvent.getType() == InputEvent.Type.touchDown){
-                    String file = getJavaFile();
-                    if (file != null){
-                        updateCurrentAction("reading file");
-                        String fileContents = readFile(file);
+                    String dir = getJavaDir();
 
-                        updateCurrentAction("updating scroll box");
-                        updateCodeLabel(fileContents);
+                    ArrayList<File> files = getJavaFiles(dir);
 
-                        ArrayList<ClassInstance> classes = CodeSpongeTwo.fragment_class(fileContents);
-                        System.out.println("this is the number of classes: " + classes.size());
+                    System.out.println("this is the number of java files: " + files.size());
 
-                        updateCurrentAction("creating thread");
-                        Thread t = new Thread(() -> {
-                            updateCurrentAction("fragmenting code");
-
-                            String docID = CodeSponge.fragmentCode(fileContents, new CodeSponge.Settings(showConstructors, showExceptions), this);
-
-                            if (!Objects.equals(docID, "")) {
-                                this.docID = docID;
-                                urlButton.setVisible(true);
-                                addInputButton.setVisible(true);
+                    updateCurrentAction("reading file");
+                    Thread t = new Thread(() -> {
+                        for (File file : files) {
+                            System.out.println("this is the file: " + file.getName());
+                            String fileContents = "";
+                            try {
+                                fileContents = readFile(String.valueOf(file));
+                            }catch (Exception e){
+                                System.out.println("this is the exception: " + e);
                             }
-                            updateCurrentAction("document created");
-                        });
-                        t.start();
 
-                        addInputButton.setVisible(false);
-                    }
+                            if (fileContents.equals("")){
+                                continue;
+                            }
+
+                            ArrayList<ClassInstance> classes = CodeSpongeTwo.fragment_class(fileContents);
+
+                            updateCurrentAction("updating scroll box");
+                            updateCodeLabel(fileContents);
+
+                            try {
+                                Thread.sleep(30);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+
+                    t.start();
+
+
+//
+
+//                        System.out.println("this is the number of classes: " + classes.size());
+//
+//                        updateCurrentAction("creating thread");
+//                        Thread t = new Thread(() -> {
+//                            updateCurrentAction("fragmenting code");
+//
+////                            String docID = CodeSponge.fragmentCode(fileContents, new CodeSponge.Settings(showConstructors, showExceptions), this);
+//
+//                            if (!Objects.equals(docID, "")) {
+//                                this.docID = docID;
+//                                urlButton.setVisible(true);
+//                                addInputButton.setVisible(true);
+//                            }
+//                            updateCurrentAction("document created");
+//                        });
+//                        t.start();
+//
+//                        addInputButton.setVisible(false);
+//                    }
                 }
             }
             return false;
@@ -299,19 +327,61 @@ public class MainScreen implements Screen {
         }
     }
 
-    public String getJavaFile(){
-        JFileChooser fileChooser = new JFileChooser();
+    public String getJavaDir(){
+        JFileChooser fileChooser = new JFileChooser(){
+            public void approveSelection() {
+                if (getSelectedFile().isFile()) {
+                    return;
+                } else
+                    super.approveSelection();
+            }
+        };
         fileChooser.setCurrentDirectory(new File(FileSystems.getDefault().getPath("").toAbsolutePath() + "/core/src/com/mygdx/game"));
-        System.out.println(fileChooser.getCurrentDirectory() + " is the current directory");
-        FileFilter filter = new FileNameExtensionFilter("Java file","java");
-        fileChooser.setAcceptAllFileFilterUsed(false);
-        fileChooser.setFileFilter(filter);
-        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-        fileChooser.showOpenDialog(null);
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+        fileChooser.showDialog(new JList<>(), "Select a directory");
 
         File fileCollected = fileChooser.getSelectedFile();
 
+        System.out.println("this is the selected dir : " + fileCollected.getAbsolutePath());
+
         return Objects.equals(String.valueOf(fileCollected), "null") ? null : String.valueOf(fileCollected);
+    }
+
+    public ArrayList<File> getJavaFiles(String dir){
+        File file = new File(dir);
+        ArrayList<File> files_to_check = new ArrayList<>(Arrays.asList(Objects.requireNonNull(file.listFiles())));
+
+        ArrayList<File> output = new ArrayList<>();
+
+        while (files_to_check.size() > 0) {
+            File f = files_to_check.get(0);
+            files_to_check.remove(0);
+            if (f.getName().endsWith(".jar")){
+                System.out.println("Found a jar file : " + f.getAbsolutePath());
+            }
+
+            if (checkFileType(f, ".java")) {
+                output.add(f);
+                continue;
+            }
+
+            File[] child_files = f.listFiles();
+            if (child_files != null) {
+                for (File child : child_files) {
+                    if (child.isDirectory()){
+                        output.addAll(getJavaFiles(child.getAbsolutePath()));
+                    }else{
+                        files_to_check.add(child);
+                    }
+                }
+            }
+        }
+
+        return output;
+    }
+
+    public boolean checkFileType(File f, String type){
+        return f.getName().endsWith(type);
     }
 
     public String readFile(String fileLocation){
