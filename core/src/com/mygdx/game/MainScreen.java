@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.Stack;
 
 public class MainScreen implements Screen {
 
@@ -54,6 +55,9 @@ public class MainScreen implements Screen {
 
     boolean showExceptions = false;
     boolean showConstructors = false;
+
+    boolean isDrawing = false;
+    Stack<String> code_stack = new Stack<>();
 
     public MainScreen(MyGdxGame game) {
         this.game = game;
@@ -84,7 +88,16 @@ public class MainScreen implements Screen {
         Color c = Color.GRAY;
         Gdx.gl.glClearColor(c.r, c.g, c.b, c.a);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        stage.draw();
+        try {
+            isDrawing = true;
+            stage.draw();
+            isDrawing = false;
+        }catch (StringIndexOutOfBoundsException e){
+            e.printStackTrace();
+            System.out.println("IndexOutOfBoundsException when drawing" +
+                    codeLabel.getText());
+//            stage.getBatch().end();
+        }
         stage.act();
     }
 
@@ -233,7 +246,10 @@ public class MainScreen implements Screen {
     }
 
     public void updateCodeLabel(String text){
-        codeLabel.setText(text);
+        code_stack.add(text);
+        if (!isDrawing) {
+            codeLabel.setText(code_stack.get(0));
+        }
     }
 
     public ScrollPane setupScrollPane(){
@@ -342,8 +358,9 @@ public class MainScreen implements Screen {
 
         File fileCollected = fileChooser.getSelectedFile();
 
-        System.out.println("this is the selected dir : " + fileCollected.getAbsolutePath());
-
+        if (fileCollected != null) {
+            System.out.println("this is the selected dir : " + fileCollected.getAbsolutePath());
+        }
         return Objects.equals(String.valueOf(fileCollected), "null") ? null : String.valueOf(fileCollected);
     }
 
