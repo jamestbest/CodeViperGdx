@@ -24,9 +24,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Objects;
+import java.util.*;
 import java.util.Stack;
 
 public class MainScreen implements Screen {
@@ -57,7 +55,7 @@ public class MainScreen implements Screen {
     boolean showConstructors = false;
 
     boolean isDrawing = false;
-    Stack<String> code_stack = new Stack<>();
+    com.badlogic.gdx.utils.Queue<String> code_stack = new com.badlogic.gdx.utils.Queue<>();
 
     public MainScreen(MyGdxGame game) {
         this.game = game;
@@ -156,12 +154,16 @@ public class MainScreen implements Screen {
                     updateCurrentAction("reading file");
                     Thread t = new Thread(() -> {
                         for (File file : files) {
-                            System.out.println("this is the file: " + file.getName());
+                            System.out.println("this is the file: " + file.getName()  + " and this is the path: " + file.getPath());
                             String fileContents = "";
                             try {
                                 fileContents = readFile(String.valueOf(file));
                             }catch (Exception e){
                                 System.out.println("this is the exception: " + e);
+                            }
+
+                            if (fileContents == null){
+                                continue;
                             }
 
                             if (fileContents.equals("")){
@@ -246,9 +248,10 @@ public class MainScreen implements Screen {
     }
 
     public void updateCodeLabel(String text){
-        code_stack.add(text);
+        System.out.println("updating code label");
+        code_stack.addLast(text);
         if (!isDrawing) {
-            codeLabel.setText(code_stack.get(0));
+            codeLabel.setText(code_stack.removeFirst());
         }
     }
 
@@ -365,8 +368,14 @@ public class MainScreen implements Screen {
     }
 
     public ArrayList<File> getJavaFiles(String dir){
+        ArrayList<File> files_to_check = new ArrayList<>();
         File file = new File(dir);
-        ArrayList<File> files_to_check = new ArrayList<>(Arrays.asList(Objects.requireNonNull(file.listFiles())));
+        try {
+            files_to_check = new ArrayList<>(Arrays.asList(Objects.requireNonNull(file.listFiles())));
+        }catch (NullPointerException e){
+            System.out.println("No files found in directory");
+        }
+
 
         ArrayList<File> output = new ArrayList<>();
 

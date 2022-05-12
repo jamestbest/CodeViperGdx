@@ -58,8 +58,6 @@ public class CodeSpongeTwo {
                 isInComment = false;
             }
 
-            System.out.println(shouldEnd + " " + code_line);
-
             //if the line is a comment it is excluded
             if (shouldEnd){
                 continue;
@@ -77,8 +75,6 @@ public class CodeSpongeTwo {
             //adds the line to the multiline store, this means that if a line goes onto another line
             //it will later be treated as a single line
             multiline_store.append(full_line).append(" ");
-
-            System.out.println(multiline_store);
 
             if (type.equals("class")){
                 ClassInstance cI = create_class(full_line);
@@ -123,7 +119,6 @@ public class CodeSpongeTwo {
     }
 
     public static ClassInstance create_class(String line){
-        System.out.println(line);
         String[] line_split = line.split(" ");
 
         String access_level = "an access_level_find error has occurred";
@@ -161,14 +156,12 @@ public class CodeSpongeTwo {
         ClassInstance classInstance = new ClassInstance(name, access_level, modifiers,
                 extended_class, implemented_interfaces);
 
-        System.out.println("THis is the line without comments:  " + line);
-
         for (String word : line.split(" ")) {
             if (word.equals("{")){
                 break;
             }
         }
-        return null;
+        return classInstance;
     }
 
     public static String remove_quotes(String line){
@@ -188,7 +181,6 @@ public class CodeSpongeTwo {
             }
             start_index = line.indexOf("\"");
         }
-        System.out.println("This is the line without quotes: " + line);
         return line;
     }
 
