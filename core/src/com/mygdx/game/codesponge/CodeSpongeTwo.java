@@ -92,8 +92,8 @@ public class CodeSpongeTwo {
                     }
                 }
                 isInClass = true;
+            } else if (type.equals("method")) {
             }
-
             if (!type.equals("multiline")){
                 multiline_store = new StringBuilder();
             }
