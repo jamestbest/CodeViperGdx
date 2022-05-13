@@ -93,12 +93,79 @@ public class CodeSpongeTwo {
                 }
                 isInClass = true;
             } else if (type.equals("method")) {
+                current_class.methods.add(create_method(full_line));
             }
             if (!type.equals("multiline")){
                 multiline_store = new StringBuilder();
             }
         }
         return output;
+    }
+
+    public static MethodInstance create_method(String line){
+        ArrayList<String> modifiers = new ArrayList<>();
+        String access_level = "error finding access level";
+        String return_type = "error finding return type";
+        String name = "error finding method name";
+
+        String[] line_parts = line.split("\\(");
+
+        String[] main_part = line_parts[0].strip().split(" ");
+
+        boolean has_return = false;
+        for (String part : main_part){
+            if (AMCModifiers.contains(part)){
+                modifiers.add(part);
+            } else if (AMCAccessLevels.contains(part)){
+                access_level = part;
+            } else {
+                if (!has_return){
+                    return_type = part;
+                    has_return = true;
+                }else{
+                    name = part;
+                }
+            }
+        }
+
+        ArrayList<String> exceptions = new ArrayList<>();
+        ArrayList<String> parameters = new ArrayList<>();
+
+        String right = line_parts[1];
+        String[] parameters_part = right.split("\\)")[0].split(",");
+        String[] exceptions_part = right.split("\\)")[1].split(",");
+
+        if (right.contains("exception")){
+            if (exceptions_part.length > 0){
+                exceptions.addAll(Arrays.asList(exceptions_part));
+            }
+        }
+
+        for (String part : parameters_part) {
+//            parameters.add(create_variable(part));
+        }
+
+        boolean is_constructor = false;
+        if (name.equals(current_class.getName())){
+            is_constructor = true;
+        }
+
+        return new MethodInstance(access_level, return_type, name,
+                new ArrayList<>(), modifiers, exceptions, is_constructor);
+    }
+
+    public static VariableInstance get_variable(String line){
+        String type = "error finding variable type";
+        String name = "error finding variable name";
+        String access_level = "error finding variable access level";
+        ArrayList<String> modifiers = new ArrayList<>();
+
+        final String test_variable = "hello";
+
+
+
+//        return new VariableInstance();
+        return null;
     }
 
     public static int getInnerEnd(String[] code_split, int start_index){
