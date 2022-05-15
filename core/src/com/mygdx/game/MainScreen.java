@@ -10,11 +10,14 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
+import com.badlogic.gdx.scenes.scene2d.ui.List;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.StretchViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.mygdx.game.codesponge.ClassInstance;
+import com.mygdx.game.codesponge.CodeSponge;
 import com.mygdx.game.codesponge.CodeSpongeTwo;
 
 import javax.swing.*;
@@ -24,8 +27,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
 import java.util.*;
-import java.util.Stack;
 
 public class MainScreen implements Screen {
 
@@ -45,6 +48,7 @@ public class MainScreen implements Screen {
     Label codeLabel;
     TextButton urlButton;
     Label currentActionLabel;
+    SelectBox<String> code_select_box;
 
     BufferedReader bufferedReader;
     FileReader fileReader;
@@ -56,6 +60,8 @@ public class MainScreen implements Screen {
 
     boolean isDrawing = false;
     com.badlogic.gdx.utils.Queue<String> code_stack = new com.badlogic.gdx.utils.Queue<>();
+
+    ArrayList<ClassInstance> classes = new ArrayList<>();
 
     public MainScreen(MyGdxGame game) {
         this.game = game;
@@ -95,7 +101,11 @@ public class MainScreen implements Screen {
             System.out.println("IndexOutOfBoundsException when drawing" +
                     codeLabel.getText());
 //            stage.getBatch().end();
+        }catch (IllegalStateException e2){
+            e2.printStackTrace();
+            System.out.println("IllegalStateException when drawing");
         }
+
         stage.act();
     }
 
@@ -146,67 +156,73 @@ public class MainScreen implements Screen {
                 InputEvent inputEvent = (InputEvent) event;
                 if (inputEvent.getType() == InputEvent.Type.touchDown){
                     String dir = getJavaDir();
+                    if (dir != null) {
+                        Thread t = new Thread(() -> {
+                            updateCurrentAction("locating java files");
+                            ArrayList<File> files = (getJavaFiles(dir));
+                            Array<String> fileNames = new Array<>();
+                            for (File f : files) {
+                                fileNames.add(f.getName());
+                            }
 
-                    ArrayList<File> files = getJavaFiles(dir);
+//                            code_select_box.setItems(fileNames);
 
-                    System.out.println("this is the number of java files: " + files.size());
+                            System.out.println("this is the number of java files: " + files.size());
 
-                    updateCurrentAction("reading file");
-                    Thread t = new Thread(() -> {
-                        for (File file : files) {
-                            System.out.println("this is the file: " + file.getName()  + " and this is the path: " + file.getPath());
-                            String fileContents = "";
+                            for (File file : files) {
+                                updateCurrentAction("reading files");
+                                System.out.println("this is the file: " + file.getName() + " and this is the path: " + file.getPath());
+                                String fileContents = "";
+                                try {
+                                    fileContents = readFile(String.valueOf(file));
+                                } catch (Exception e) {
+                                    System.out.println("this is the exception: " + e);
+                                }
+
+                                if (fileContents == null) {
+                                    continue;
+                                }
+
+                                if (fileContents.equals("")) {
+                                    continue;
+                                }
+
+                                ArrayList<ClassInstance> classes = CodeSpongeTwo.fragment_class(fileContents);
+
+                                for (ClassInstance classInstance : classes) {
+                                    System.out.println(classInstance.toString());
+                                }
+
+                                this.classes.addAll(classes);
+
+                                updateCodeLabel(fileContents);
+
+                                try {
+                                    Thread.sleep(30);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+
                             try {
-                                fileContents = readFile(String.valueOf(file));
-                            }catch (Exception e){
-                                System.out.println("this is the exception: " + e);
-                            }
+                                ;
+                                String docID = DocsQuickstart.createFullDoc(classes, new CodeSponge.Settings(showConstructors, showExceptions), this);
 
-                            if (fileContents == null){
-                                continue;
-                            }
-
-                            if (fileContents.equals("")){
-                                continue;
-                            }
-
-                            ArrayList<ClassInstance> classes = CodeSpongeTwo.fragment_class(fileContents);
-
-                            updateCurrentAction("updating scroll box");
-                            updateCodeLabel(fileContents);
-
-                            try {
-                                Thread.sleep(30);
-                            } catch (InterruptedException e) {
+                                if (!Objects.equals(docID, "")) {
+                                    this.docID = docID;
+                                    urlButton.setVisible(true);
+                                    addInputButton.setVisible(true);
+                                }
+                                updateCurrentAction("document created");
+                            } catch (IOException | GeneralSecurityException e) {
                                 e.printStackTrace();
                             }
-                        }
-                    });
+                        });
 
-                    t.start();
-
-
-//
-
-//                        System.out.println("this is the number of classes: " + classes.size());
-//
-//                        updateCurrentAction("creating thread");
-//                        Thread t = new Thread(() -> {
-//                            updateCurrentAction("fragmenting code");
-//
-////                            String docID = CodeSponge.fragmentCode(fileContents, new CodeSponge.Settings(showConstructors, showExceptions), this);
-//
-//                            if (!Objects.equals(docID, "")) {
-//                                this.docID = docID;
-//                                urlButton.setVisible(true);
-//                                addInputButton.setVisible(true);
-//                            }
-//                            updateCurrentAction("document created");
-//                        });
-//                        t.start();
-//
-//                        addInputButton.setVisible(false);
-//                    }
+                        urlButton.setVisible(false);
+                        t.start();
+                        addInputButton.setVisible(false);
+                    }
                 }
             }
             return false;
@@ -273,7 +289,7 @@ public class MainScreen implements Screen {
         return toggleBox;
     }
 
-    public void setupTextButton(String text, Runnable runnable){
+    public TextButton setupTextButton(String text, Runnable runnable){
         TextButton button = new TextButton(text, skin);
         button.setSize(Gdx.graphics.getWidth() * 0.25f, Gdx.graphics.getHeight() * 0.1f);
         button.pack();
@@ -285,8 +301,7 @@ public class MainScreen implements Screen {
                 runnable.run();
             }
        });
-
-        stage.addActor(button);
+        return button;
     }
 
     public void setupTable(){
@@ -327,11 +342,19 @@ public class MainScreen implements Screen {
          });
 
         table.add(constructors).expandX().left();
+        table.row();
 
-        setupTextButton("Delete Credentials", this::deleteCreds);
+        stage.addActor(setupTextButton("Delete Credentials", this::deleteCreds));
 
-        table.setDebug(true);
         stage.addActor(table);
+    }
+
+    public SelectBox<String> setup_code_list(){
+        SelectBox<String> code_list = new SelectBox<>(skin);
+        code_list.setPosition(100, 50);
+        code_list.setItems("test", "test2");
+        this.code_select_box = code_list;
+        return code_list;
     }
 
     public void deleteCreds(){

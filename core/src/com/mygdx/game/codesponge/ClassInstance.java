@@ -13,6 +13,8 @@ public class ClassInstance extends Instance{
 
     public ArrayList<ImportInstance> imports;
 
+    public int number_of_constructors;
+
     public ClassInstance(String name, String accessLevel, ArrayList<String> modifiers, String extendedClass, ArrayList<String> implementedInterfaces) {
         this.name = name;
         this.accessLevel = accessLevel;
@@ -53,12 +55,15 @@ public class ClassInstance extends Instance{
 
     public String toString(){
         String s = "";
-        s += "Class: " + name + "\n";
+        s += "Class name: " + name + "\n";
         s += "Access Level: " + accessLevel + "\n";
         s += "Modifiers: " + modifiers + "\n";
         s += "Variables: " + Arrays.toString(variables.toArray()) + "\n";
         s += "Methods: " + methods.toString() + "\n";
         s += "Imports: " + imports.toString() + "\n";
+        s += "Inner To: " + innerTo + "\n";
+        s += "Extended Class: " + extendedClass + "\n";
+        s += "Implemented Interfaces: " + implementedInterfaces.toString() + "\n";
         return s;
     }
 

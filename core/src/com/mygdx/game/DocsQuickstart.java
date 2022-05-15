@@ -41,6 +41,14 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
     List<String> SCOPES = Collections.singletonList(DocsScopes.DOCUMENTS);
     private static final String CREDENTIALS_FILE_PATH = "/credentials.json";
 
+    private static int number_of_requests = 0;
+
+    private static final int MAX_REQUESTS_PER_MINUTE = 500;
+
+    private static Queue<Request> requests_queue = new LinkedList<>();
+
+    private static MainScreen mainScreen;
+
     /**
      * Creates an authorized Credential object.
      * @param HTTP_TRANSPORT The network HTTP Transport.
@@ -69,7 +77,9 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
         return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
     }
 
-    public static String createFullDoc(ArrayList<ClassInstance> classes, CodeSponge.Settings settings) throws IOException, GeneralSecurityException {
+    public static String createFullDoc(ArrayList<ClassInstance> classes, CodeSponge.Settings settings, MainScreen mainScreen2) throws IOException, GeneralSecurityException {
+        mainScreen = mainScreen2;
+
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         Docs service = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
                 .setApplicationName(APPLICATION_NAME)
@@ -77,13 +87,43 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
 
         //creates the document
         String docId = createDoc(service);
+
         for (ClassInstance c : classes) {
             //loops through every class and creates two tables, one for the methods
             //and one for the attributes
+
             createEntireTableTemplate(docId, service, c, settings);
         }
 
         return docId;
+    }
+
+    public static void add_requests(List<Request> requests, Docs service, String docID) throws IOException {
+        number_of_requests += requests.size();
+
+        if (number_of_requests > 500) {
+            System.out.println("Sleeping for a minute");
+        }
+
+        if (number_of_requests >= MAX_REQUESTS_PER_MINUTE) {
+            System.out.println("Sleeping for 60 seconds");
+            mainScreen.updateCurrentAction("request quota \n exceeded.\nSleeping for 60 seconds");
+            long current_time = System.currentTimeMillis();
+            while (number_of_requests >= MAX_REQUESTS_PER_MINUTE) {
+                float count_down = 60 - (Math.round(((System.currentTimeMillis() - current_time) / 1000f) * 100f) / 100f);
+                mainScreen.updateCurrentAction("request quota \nexceeded.\nSleeping for " + (count_down) +"\nseconds");
+
+                if (System.currentTimeMillis() - current_time > 60000) {
+                    System.out.println("Exceeded max requests per minute");
+                    number_of_requests = 0;
+                }
+            }
+        }
+        System.out.println(" this is the request count " + number_of_requests);
+        mainScreen.updateCurrentAction("Updating doc \nRequests: " + number_of_requests);
+
+        BatchUpdateDocumentRequest batchUpdateRequest = new BatchUpdateDocumentRequest().setRequests(requests);
+        BatchUpdateDocumentResponse batchUpdateResponse = service.documents().batchUpdate(docID, batchUpdateRequest).execute();
     }
 
     private static String createDoc(Docs service) throws IOException {
@@ -115,9 +155,9 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
                 .setColumns(colCount)
                 .setLocation(new Location().setIndex(tableAddIndex).setSegmentId(""))));
 
+
         //send the requests to the API
-        BatchUpdateDocumentRequest batchUpdateRequest = new BatchUpdateDocumentRequest().setRequests(requests);
-        BatchUpdateDocumentResponse batchUpdateResponse = service.documents().batchUpdate(docID, batchUpdateRequest).execute();
+        add_requests(requests, service, docID);
 
         //get the updated document
 //        Document doc = service.documents().get(docID).execute();
@@ -149,8 +189,7 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
         requests.addAll(setupColumnHeadings(cellOneIndex, 1, colCount, headings));
 
         //send new requests
-        batchUpdateRequest = new BatchUpdateDocumentRequest().setRequests(requests);
-        batchUpdateResponse = service.documents().batchUpdate(docID, batchUpdateRequest).execute();
+        add_requests(requests, service, docID);
     }
 
     public static void createClassMethodsTableTemplate(String docID, Docs service, ClassInstance cI, CodeSponge.Settings settings) throws IOException {
@@ -166,13 +205,16 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
 
         int tableAddLocation = 1;
 
+        int row_count = cI.methods.size() + 3;
+        if (!settings.isShowConstructors()){
+            row_count -= cI.number_of_constructors;
+        }
         requests.add(new Request().setInsertTable(new InsertTableRequest()
-                .setRows(cI.methods.size() + 3)
+                .setRows(row_count)
                 .setColumns(colCount)
                 .setLocation(new Location().setIndex(tableAddLocation).setSegmentId(""))));
 
-        BatchUpdateDocumentRequest body = new BatchUpdateDocumentRequest().setRequests(requests);
-        BatchUpdateDocumentResponse response = service.documents().batchUpdate(docID, body).execute();
+        add_requests(requests, service, docID);
 
         Document t = service.documents().get(docID).execute();
         List<StructuralElement> contents = t.getBody().getContent();
@@ -189,7 +231,11 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
                     continue;
                 }
             }
-            requests.addAll(Objects.requireNonNull(addMethodToTable(mI, cellOneIndex, 4 + i, colCount, settings.isShowExceptions())));
+            int row_index = 4 + i;
+            if (!settings.isShowConstructors()){
+                row_index -= cI.number_of_constructors;
+            }
+            requests.addAll(Objects.requireNonNull(addMethodToTable(mI, cellOneIndex, row_index, colCount, settings.isShowExceptions())));
         }
 
         requests.addAll(Objects.requireNonNull(setupColumnHeadings(cellOneIndex, 3, colCount, headings)));
@@ -206,15 +252,20 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
 
         requests.addAll(Objects.requireNonNull(addClassName(classNameHeader, 2)));
 
-        BatchUpdateDocumentRequest body2 = new BatchUpdateDocumentRequest().setRequests(requests);
-        BatchUpdateDocumentResponse response2 = service.documents().batchUpdate(docID, body2).execute();
+        add_requests(requests, service, docID);
     }
 
     public static List<Request> addVariableToTable(VariableInstance vI, int tableIndex, int rowIndex, int colCount){
         List<Request> requests = new ArrayList<>();
 
         requests.add(addTextToTable(vI.getType(), tableIndex, rowIndex, 2, colCount));
-        requests.add(addTextToTable(vI.getAccessLevel() + " " + vI.getName(), tableIndex, rowIndex, 1, colCount));
+
+        String text = vI.getName();
+        if (vI.getAccessLevel() != null){
+            text = vI.getAccessLevel() + " " + text;
+        }
+
+        requests.add(addTextToTable(text, tableIndex, rowIndex, 1, colCount));
 
         return requests;
     }

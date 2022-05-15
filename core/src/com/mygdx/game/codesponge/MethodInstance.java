@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 public class MethodInstance extends Instance{
-    private String returnType = "void";
+    private String returnType;
     private ArrayList<VariableInstance> parameters;
 
     private ArrayList<String> exceptions;
@@ -88,6 +88,7 @@ public class MethodInstance extends Instance{
                 sb.append(", ");
             }
         }
+        sb.append(" ");
         sb.append(exceptions.toString());
         return sb.toString();
     }

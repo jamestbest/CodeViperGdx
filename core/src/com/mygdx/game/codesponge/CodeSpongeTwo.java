@@ -32,15 +32,6 @@ public class CodeSpongeTwo {
             String code_line = code_split[i];
             String code_stripped = code_line.strip();
 
-            //calculate the new bracket level, used to determine if the line is a method or attribute
-            if (code_stripped.contains("{")) {
-                bracketLevel++;
-            }
-
-            if (code_stripped.contains("}")) {
-                bracketLevel--;
-            }
-
             //determines if the line is a comment, and if so continues to the next line
             boolean shouldEnd = false;
             if (code_stripped.startsWith("/*")) {
@@ -66,34 +57,67 @@ public class CodeSpongeTwo {
             //reformats the line to remove comments and quotes, this is because when checking for
             //keywords such as class the program can get confused by words in a comment or print
             //statement
-            String full_line = remove_comments(code_line);
-            full_line = remove_quotes(full_line);
+            //quotes are removed first as if there is an if(x.contains("//")) like in this program then it will be picked
+            //up as a comment and not a quote first, removing the rest of the line and preventing things like { from being
+            //detected
+            String full_line = remove_quotes(code_stripped);
+            full_line = remove_comments(full_line);
 
             //returns the type of the line e.g. class, method, attribute
             String type = getType(full_line, bracketLevel);
+
+            //calculate the new bracket level, used to determine if the line is a method or attribute
+            if (full_line.contains("{")) {
+                bracketLevel++;
+            }
+
+            if (full_line.contains("}")) {
+                bracketLevel--;
+            }
 
             //adds the line to the multiline store, this means that if a line goes onto another line
             //it will later be treated as a single line
             multiline_store.append(full_line).append(" ");
 
             if (type.equals("class")){
-                ClassInstance cI = create_class(full_line);
-                output.add(cI);
+                if (!isInClass) {
+                    ClassInstance cI = create_class(full_line);
+                    cI.setImports(getImportList(code_split));
+                    output.add(cI);
+                    current_class = cI;
+                }
                 ClassInstance outer_class = current_class;
-                current_class = cI;
-                if (isInClass){
+                if (isInClass) {
                     int inner_end_index = getInnerEnd(code_split, i);
                     if (inner_end_index != -1) {
                         String[] inner_code = Arrays.copyOfRange(code_split, i, inner_end_index);
                         System.out.println("I have recursed");
-                        output.addAll(fragment_class(inner_code));
+                        ArrayList<ClassInstance> inner_classes = fragment_class(inner_code);
+                        for (ClassInstance inner_class : inner_classes) {
+                            inner_class.setInnerTo(outer_class.getName());
+                        }
+                        output.addAll(inner_classes);
                         current_class = outer_class;
                         i = inner_end_index;
                     }
                 }
                 isInClass = true;
             } else if (type.equals("method")) {
-                current_class.methods.add(create_method(full_line));
+                try {
+                    MethodInstance mI = create_method(full_line);
+                    if (mI.isConstructor()){
+                        current_class.number_of_constructors++;
+                    }
+                    current_class.methods.add(mI);
+                } catch (Exception e) {
+                    System.out.println("Error in method: " + full_line);
+                }
+            } else if (type.equals("attribute")) {
+                try {
+                    current_class.variables.add(create_variable(full_line));
+                }catch (Exception e){
+                    System.out.println("Error in attribute: " + full_line);
+                }
             }
             if (!type.equals("multiline")){
                 multiline_store = new StringBuilder();
@@ -102,9 +126,9 @@ public class CodeSpongeTwo {
         return output;
     }
 
-    public static MethodInstance create_method(String line){
+    public static MethodInstance create_method(String line) throws Exception {
         ArrayList<String> modifiers = new ArrayList<>();
-        String access_level = "error finding access level";
+        String access_level = "";
         String return_type = "error finding return type";
         String name = "error finding method name";
 
@@ -129,43 +153,79 @@ public class CodeSpongeTwo {
         }
 
         ArrayList<String> exceptions = new ArrayList<>();
-        ArrayList<String> parameters = new ArrayList<>();
+        ArrayList<VariableInstance> parameters = new ArrayList<>();
 
         String right = line_parts[1];
-        String[] parameters_part = right.split("\\)")[0].split(",");
-        String[] exceptions_part = right.split("\\)")[1].split(",");
 
-        if (right.contains("exception")){
-            if (exceptions_part.length > 0){
-                exceptions.addAll(Arrays.asList(exceptions_part));
+        String[] right_parts = right.split("\\)");
+        if (right_parts.length != 2){
+            throw new Exception("This is not a method");
+        }
+
+        if (name.equals("createClassMethodsTableTemplate")){
+            System.out.println("");
+        }
+
+        String[] parameters_part = right_parts[0].split(",");
+
+        String exceptions_part = right_parts[1];
+        if (exceptions_part.contains("throws")){
+            exceptions_part = exceptions_part.replace("throws", "");
+            String[] exceptions_ = exceptions_part.split(",");
+
+            if (exceptions_.length > 0){
+                for (String exception : exceptions_){
+                    exceptions.add(exception.replace("{", "").strip());
+                }
             }
         }
 
         for (String part : parameters_part) {
-//            parameters.add(create_variable(part));
+            if (part.equals("")){
+                continue;
+            }
+            parameters.add(create_variable(part));
         }
 
         boolean is_constructor = false;
-        if (name.equals(current_class.getName())){
+
+        if (name.equals("error finding method name") && !return_type.equals("error finding return type")){
+            name = return_type;
             is_constructor = true;
         }
 
         return new MethodInstance(access_level, return_type, name,
-                new ArrayList<>(), modifiers, exceptions, is_constructor);
+                parameters, modifiers, exceptions, is_constructor);
     }
 
-    public static VariableInstance get_variable(String line){
+    public static VariableInstance create_variable(String line){
         String type = "error finding variable type";
         String name = "error finding variable name";
-        String access_level = "error finding variable access level";
+        String access_level = null;
         ArrayList<String> modifiers = new ArrayList<>();
 
-        final String test_variable = "hello";
+        String[] variable_parts = line.split(" ");
 
+        boolean found_type = false;
+        for (String part : variable_parts){
+            String clean_part = part.replace(";", "");
 
-
-//        return new VariableInstance();
-        return null;
+            if (AMCModifiers.contains(clean_part)){
+                modifiers.add(clean_part);
+            } else if (AMCAccessLevels.contains(clean_part)){
+                access_level = clean_part;
+            }
+            else {
+                if (!found_type){
+                    type = clean_part;
+                    found_type = true;
+                }else {
+                    name = clean_part;
+                    break;
+                }
+            }
+        }
+        return new VariableInstance(type, name, access_level, modifiers);
     }
 
     public static int getInnerEnd(String[] code_split, int start_index){
@@ -191,43 +251,43 @@ public class CodeSpongeTwo {
         String access_level = "an access_level_find error has occurred";
         ArrayList<String> modifiers = new ArrayList<>();
         String name = "a find_name error has occurred";
-        String extended_class = "";
+        String extended_class = null;
         ArrayList<String> implemented_interfaces = new ArrayList<>();
 
         boolean foundExtends = false;
         boolean foundImplements = false;
 
         for (String word : line_split) {
+            String clean_word = word.replace("{", "");
+
             if (foundExtends){
                 foundExtends = false;
-                extended_class = name;
+                extended_class = clean_word;
             }else if (foundImplements){
-                implemented_interfaces.add(name);
-            }
-
-            if (word.contains("{") || word.equals("class")){
-                break;
-            } else if (ClassAccessLevels.contains(word)){
-                access_level = word;
-            } else if (ClassModifiers.contains(word)){
-                modifiers.add(word);
-            } else if (word.equals("extends")){
+                implemented_interfaces.add(clean_word.replace(",", ""));
+            } else if (clean_word.equals("class")){
+            } else if (ClassAccessLevels.contains(clean_word)){
+                access_level = clean_word;
+            } else if (ClassModifiers.contains(clean_word)){
+                modifiers.add(clean_word);
+            } else if (clean_word.equals("extends")){
                 foundExtends = true;
-            } else if (word.equals("implements")){
+            } else if (clean_word.equals("implements")){
                 foundImplements = true;
             } else{
-                name = word.replace("{", "");
+                if (!word.equals("{")) {
+                    name = clean_word;
+                }
+            }
+
+            if (word.contains("{")){
+                break;
             }
         }
         
         ClassInstance classInstance = new ClassInstance(name, access_level, modifiers,
                 extended_class, implemented_interfaces);
 
-        for (String word : line.split(" ")) {
-            if (word.equals("{")){
-                break;
-            }
-        }
         return classInstance;
     }
 
@@ -297,6 +357,22 @@ public class CodeSpongeTwo {
             }
         }
 
+        if (line.endsWith("}")){
+            return "bracket_close";
+        }
+
         return "multiline";
+    }
+
+    public static ArrayList<ImportInstance> getImportList(String[] codeLines) {
+        ArrayList<ImportInstance> imports = new ArrayList<>();
+        for (String line : codeLines) {
+            if (line.startsWith("import")) {
+                String lineWithoutImport = line.replace("import", "").strip();
+                ImportInstance II = new ImportInstance(lineWithoutImport.split("\\."));
+                imports.add(II);
+            }
+        }
+        return imports;
     }
 }

@@ -1,5 +1,6 @@
 package com.mygdx.game.codesponge;
 
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.mygdx.game.DocsQuickstart;
 import com.mygdx.game.MainScreen;
 import com.sun.tools.javac.Main;
@@ -114,12 +115,12 @@ public class CodeSponge {
         }
 
         mainScreen.updateCurrentAction("creating document");
-        try {
-            return DocsQuickstart.createFullDoc(classes, settings);
-        } catch (IOException | GeneralSecurityException e) {
-            e.printStackTrace();
-            mainScreen.updateCurrentAction("error whilst creating document");
-        }
+//        try {
+//            return DocsQuickstart.createFullDoc(classes, settings);
+//        } catch (IOException | GeneralSecurityException e) {
+//            e.printStackTrace();
+//            mainScreen.updateCurrentAction("error whilst creating document");
+//        }
         return "";
     }
 
