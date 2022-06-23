@@ -19,6 +19,7 @@ import com.badlogic.gdx.utils.viewport.Viewport;
 import com.mygdx.game.codesponge.ClassInstance;
 import com.mygdx.game.codesponge.CodeSponge;
 import com.mygdx.game.codesponge.CodeSpongeTwo;
+import com.mygdx.game.codesponge.MethodInstance;
 
 import javax.swing.*;
 import java.io.BufferedReader;
@@ -204,9 +205,13 @@ public class MainScreen implements Screen {
                                 }
                             }
 
+                            CodeSponge.Settings settings = new CodeSponge.Settings(showConstructors, showExceptions);
+
+                            System.out.println("This is the total requests: " + calculate_requests(classes, settings));
+
                             try {
                                 ;
-                                String docID = DocsQuickstart.createFullDoc(classes, new CodeSponge.Settings(showConstructors, showExceptions), this);
+                                String docID = DocsQuickstart.createFullDoc(classes, settings, this);
 
                                 if (!Objects.equals(docID, "")) {
                                     this.docID = docID;
@@ -231,6 +236,27 @@ public class MainScreen implements Screen {
         return addInputButton;
     }
 
+    public int calculate_requests(ArrayList<ClassInstance> classes, CodeSponge.Settings settings) {
+        int numberOfRequests = 0;
+
+        for (ClassInstance c : classes) {
+            int method_multiplier = 2 + (settings.isShowConstructors() ? 1 : 0);
+            int variable_requests = c.variables.size() * 2;
+            numberOfRequests += variable_requests;
+
+            for (MethodInstance m : c.methods) {
+                int method_add = m.getParameters().size();
+                numberOfRequests += method_add;
+            }
+            int method_requests = c.methods.size() * method_multiplier;
+            numberOfRequests += method_requests;
+        }
+
+        int class_add = classes.size() * 13;
+
+        return numberOfRequests + class_add;
+    }
+
     public TextButton setupURLButton(){
         urlButton = new TextButton("open doc", skin);
         urlButton.setVisible(false);
@@ -252,6 +278,9 @@ public class MainScreen implements Screen {
 //    public void
 
     public void updateCurrentAction(String currentAction){
+        if (isDrawing){
+            return;
+        }
         currentActionLabel.setText(currentAction);
     }
 

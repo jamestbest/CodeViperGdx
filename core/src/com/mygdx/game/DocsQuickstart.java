@@ -110,8 +110,9 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
             mainScreen.updateCurrentAction("request quota \n exceeded.\nSleeping for 60 seconds");
             long current_time = System.currentTimeMillis();
             while (number_of_requests >= MAX_REQUESTS_PER_MINUTE) {
-                float count_down = 60 - (Math.round(((System.currentTimeMillis() - current_time) / 1000f) * 100f) / 100f);
-                mainScreen.updateCurrentAction("request quota \nexceeded.\nSleeping for " + (count_down) +"\nseconds");
+                float count_down = 60 - (((System.currentTimeMillis() - current_time) / 1000f));
+                String count_down_string = String.format("%.2f", count_down);
+                mainScreen.updateCurrentAction("request quota \nexceeded.\nSleeping for " + (count_down_string) +"\nseconds");
 
                 if (System.currentTimeMillis() - current_time > 60000) {
                     System.out.println("Exceeded max requests per minute");

@@ -163,7 +163,7 @@ public class CodeSpongeTwo {
         }
 
         if (name.equals("createClassMethodsTableTemplate")){
-            System.out.println("");
+            System.out.println("piss");
         }
 
         String[] parameters_part = right_parts[0].split(",");
