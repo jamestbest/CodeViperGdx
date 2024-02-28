@@ -27,10 +27,16 @@ public class CodeSpongeTwo {
         StringBuilder multiline_store = new StringBuilder();
 
         boolean isInClass = false;
+        boolean skip_environment = false;
+        int skip_level = -1;
 
         for (int i = 0; i < code_split.length; i++) {
             String code_line = code_split[i];
             String code_stripped = code_line.strip();
+
+            if (code_stripped.contains("InputProcessor")) {
+                System.out.println("test");
+            }
 
             //determines if the line is a comment, and if so continues to the next line
             boolean shouldEnd = false;
@@ -68,55 +74,83 @@ public class CodeSpongeTwo {
 
             //calculate the new bracket level, used to determine if the line is a method or attribute
             if (full_line.contains("{")) {
-                bracketLevel++;
+                bracketLevel += full_line.length() - full_line.replace("{", "").length();
             }
 
             if (full_line.contains("}")) {
-                bracketLevel--;
+                bracketLevel -= full_line.length() - full_line.replace("}", "").length();
             }
+
+            if (skip_environment) {
+                if (full_line.contains("}")) {
+                    if (bracketLevel != skip_level) {
+                        continue;
+                    }
+
+                    skip_environment = false;
+                    full_line = full_line.substring(full_line.indexOf("}"));
+                }
+                else {
+                    continue;
+                }
+            }
+
 
             //adds the line to the multiline store, this means that if a line goes onto another line
             //it will later be treated as a single line
             multiline_store.append(full_line).append(" ");
 
-            if (type.equals("class")){
-                if (!isInClass) {
-                    ClassInstance cI = create_class(full_line);
-                    cI.setImports(getImportList(code_split));
-                    output.add(cI);
-                    current_class = cI;
-                }
-                ClassInstance outer_class = current_class;
-                if (isInClass) {
-                    int inner_end_index = getInnerEnd(code_split, i);
-                    if (inner_end_index != -1) {
-                        String[] inner_code = Arrays.copyOfRange(code_split, i, inner_end_index);
-                        System.out.println("I have recursed");
-                        ArrayList<ClassInstance> inner_classes = fragment_class(inner_code);
-                        for (ClassInstance inner_class : inner_classes) {
-                            inner_class.setInnerTo(outer_class.getName());
+            switch (type) {
+                case "class" -> {
+                    if (!isInClass) {
+                        ClassInstance cI = create_class(full_line);
+                        cI.setImports(getImportList(code_split));
+                        output.add(cI);
+                        current_class = cI;
+                    }
+                    ClassInstance outer_class = current_class;
+                    if (isInClass) {
+                        int inner_end_index = getInnerEnd(code_split, i);
+                        if (inner_end_index != -1) {
+                            String[] inner_code = Arrays.copyOfRange(code_split, i, inner_end_index);
+                            System.out.println("I have recursed");
+                            ArrayList<ClassInstance> inner_classes = fragment_class(inner_code);
+                            for (ClassInstance inner_class : inner_classes) {
+                                inner_class.setInnerTo(outer_class.getName());
+                            }
+                            output.addAll(inner_classes);
+                            current_class = outer_class;
+                            i = inner_end_index;
                         }
-                        output.addAll(inner_classes);
-                        current_class = outer_class;
-                        i = inner_end_index;
+                    }
+                    isInClass = true;
+                }
+                case "method" -> {
+                    try {
+                        MethodInstance mI = create_method(full_line);
+                        if (mI.isConstructor()) {
+                            current_class.number_of_constructors++;
+                        }
+                        current_class.methods.add(mI);
+                    } catch (Exception e) {
+                        System.out.println("Error in method: " + full_line);
                     }
                 }
-                isInClass = true;
-            } else if (type.equals("method")) {
-                try {
-                    MethodInstance mI = create_method(full_line);
-                    if (mI.isConstructor()){
-                        current_class.number_of_constructors++;
+                case "attribute" -> {
+                    try {
+                        current_class.variables.add(create_variable(full_line));
+                    } catch (Exception e) {
+                        System.out.println("Error in attribute: " + full_line);
                     }
-                    current_class.methods.add(mI);
-                } catch (Exception e) {
-                    System.out.println("Error in method: " + full_line);
                 }
-            } else if (type.equals("attribute")) {
-                try {
-                    current_class.variables.add(create_variable(full_line));
-                }catch (Exception e){
-                    System.out.println("Error in attribute: " + full_line);
+                case "attribute_interface" -> {
+                    try {
+                        current_class.variables.add(create_variable(full_line));
+                        skip_environment = true;
+                        skip_level = bracketLevel - 1;
+                    } catch (Exception e) {
+                        System.out.println("Error in attribute: " + full_line);
+                    }
                 }
             }
             if (!type.equals("multiline")){
@@ -162,10 +196,6 @@ public class CodeSpongeTwo {
             throw new Exception("This is not a method");
         }
 
-        if (name.equals("createClassMethodsTableTemplate")){
-            System.out.println("piss");
-        }
-
         String[] parameters_part = right_parts[0].split(",");
 
         String exceptions_part = right_parts[1];
@@ -173,17 +203,20 @@ public class CodeSpongeTwo {
             exceptions_part = exceptions_part.replace("throws", "");
             String[] exceptions_ = exceptions_part.split(",");
 
-            if (exceptions_.length > 0){
-                for (String exception : exceptions_){
-                    exceptions.add(exception.replace("{", "").strip());
-                }
+            for (String exception : exceptions_) {
+                exceptions.add(exception.replace("{", "").strip());
             }
         }
 
+        if (line.contains("setupStartMultiplayerButtons")) {
+            System.out.println("test");
+        }
+
         for (String part : parameters_part) {
-            if (part.equals("")){
+            if (part.isEmpty()){
                 continue;
             }
+            part = part.strip();
             parameters.add(create_variable(part));
         }
 
@@ -207,7 +240,8 @@ public class CodeSpongeTwo {
         String[] variable_parts = line.split(" ");
 
         boolean found_type = false;
-        for (String part : variable_parts){
+        for (int i = 0; i < variable_parts.length; i++) {
+            String part = variable_parts[i];
             String clean_part = part.replace(";", "");
 
             if (AMCModifiers.contains(clean_part)){
@@ -217,6 +251,19 @@ public class CodeSpongeTwo {
             }
             else {
                 if (!found_type){
+
+                    if (clean_part.contains("<")) {
+                        StringBuilder total = new StringBuilder();
+
+                        while (clean_part != null && !total.toString().contains(">")) {
+                            total.append(clean_part);
+                            clean_part = variable_parts[++i];
+                        }
+                        i--;
+
+                        clean_part = total.toString();
+                    }
+
                     type = clean_part;
                     found_type = true;
                 }else {
@@ -225,6 +272,7 @@ public class CodeSpongeTwo {
                 }
             }
         }
+
         return new VariableInstance(type, name, access_level, modifiers);
     }
 
@@ -284,17 +332,15 @@ public class CodeSpongeTwo {
                 break;
             }
         }
-        
-        ClassInstance classInstance = new ClassInstance(name, access_level, modifiers,
-                extended_class, implemented_interfaces);
 
-        return classInstance;
+        return new ClassInstance(name, access_level, modifiers,
+                extended_class, implemented_interfaces);
     }
 
     public static String remove_quotes(String line){
         //this was originally designed to remove the quotes one by one
         //however it now just finds the first and last appearance of a quote
-        //and removes everything between them
+        //and removes everything between them,
         //I don't know if this will cause problems later on
         //it was used to remove anything inside a sout
         int start_index = line.indexOf("\"");
@@ -314,7 +360,7 @@ public class CodeSpongeTwo {
     public static String remove_comments(String line){
         //removes comments from a line, whether they be at the beginning, middle or end
         String[] possible_comment_starts = {"/**", "/*"};
-        String[] possible_comment_ends = {"**/", "*/"};
+        String[] possible_comment_ends = {"**/", "*/"}; // TODO: 01/05/2023 add support for /**
 
         if (line.contains("//")){
             int start_index = line.indexOf("//");
@@ -350,6 +396,16 @@ public class CodeSpongeTwo {
         }
 
         if (line.endsWith("{")){
+
+            if (line.contains("=")) {
+                //probably a variable that is impl an interface
+                if (bracketLevel == 1){
+                    return "attribute_interface";
+                }else{
+                    return "attribute_in_method_interface"; //not sure if possible
+                }
+            }
+
             if (bracketLevel == 1) {
                 return "method";
             }else{

@@ -64,6 +64,8 @@ public class MainScreen implements Screen {
 
     ArrayList<ClassInstance> classes = new ArrayList<>();
 
+    ArrayList<String> filePaths = new ArrayList<>();
+
     public MainScreen(MyGdxGame game) {
         this.game = game;
         camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -164,6 +166,7 @@ public class MainScreen implements Screen {
                             Array<String> fileNames = new Array<>();
                             for (File f : files) {
                                 fileNames.add(f.getName());
+                                this.filePaths.add(f.getPath());
                             }
 
 //                            code_select_box.setItems(fileNames);
@@ -184,7 +187,7 @@ public class MainScreen implements Screen {
                                     continue;
                                 }
 
-                                if (fileContents.equals("")) {
+                                if (fileContents.isEmpty()) {
                                     continue;
                                 }
 
@@ -207,11 +210,12 @@ public class MainScreen implements Screen {
 
                             CodeSponge.Settings settings = new CodeSponge.Settings(showConstructors, showExceptions);
 
-                            System.out.println("This is the total requests: " + calculate_requests(classes, settings));
+                            int tot_req = calculate_requests(classes, settings);
+                            System.out.println("This is the total requests: " + tot_req);
 
                             try {
                                 ;
-                                String docID = DocsQuickstart.createFullDoc(classes, settings, this);
+                                String docID = DocsQuickstart.createFullDoc(classes, settings, this, tot_req);
 
                                 if (!Objects.equals(docID, "")) {
                                     this.docID = docID;
@@ -402,12 +406,12 @@ public class MainScreen implements Screen {
         JFileChooser fileChooser = new JFileChooser(){
             public void approveSelection() {
                 if (getSelectedFile().isFile()) {
-                    return;
+                    super.approveSelection();
                 } else
                     super.approveSelection();
             }
         };
-        fileChooser.setCurrentDirectory(new File(FileSystems.getDefault().getPath("").toAbsolutePath() + "/core/src/com/mygdx/game"));
+        fileChooser.setCurrentDirectory(new File("C:\\Users\\jamescoward\\Desktop\\Java\\MrWilordFour\\core\\src\\com\\mygdx\\game\\Screens\\GameScreen.java"));
         fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
         fileChooser.showDialog(new JList<>(), "Select a directory");
 
@@ -422,6 +426,13 @@ public class MainScreen implements Screen {
     public ArrayList<File> getJavaFiles(String dir){
         ArrayList<File> files_to_check = new ArrayList<>();
         File file = new File(dir);
+
+        if (file.isFile()) {
+            ArrayList<File> out = new ArrayList<>();
+            out.add(file);
+            return out;
+        }
+
         try {
             files_to_check = new ArrayList<>(Arrays.asList(Objects.requireNonNull(file.listFiles())));
         }catch (NullPointerException e){
@@ -431,7 +442,7 @@ public class MainScreen implements Screen {
 
         ArrayList<File> output = new ArrayList<>();
 
-        while (files_to_check.size() > 0) {
+        while (!files_to_check.isEmpty()) {
             File f = files_to_check.get(0);
             files_to_check.remove(0);
             if (f.getName().endsWith(".jar")){
@@ -460,6 +471,12 @@ public class MainScreen implements Screen {
 
     public boolean checkFileType(File f, String type){
         return f.getName().endsWith(type);
+    }
+
+    public void updateFileContents(int file_index) {
+        String content = readFile(this.filePaths.get(file_index));
+
+        updateCodeLabel(content);
     }
 
     public String readFile(String fileLocation){

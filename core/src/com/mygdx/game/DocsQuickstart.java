@@ -23,7 +23,7 @@ import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.List;
 
-/* class to demonstarte use of Docs get documents API */
+/* class to demonstrate use of Docs get documents API */
 public /* this is a comment badly placed */ class DocsQuickstart { //this is a comment on a class //this is another comment in a comment
     /** Application name. */
     private static final String APPLICATION_NAME = "Google Docs API Java Quickstart";
@@ -32,6 +32,7 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
     /** Directory to store authorization tokens for this application. */
     private static final String TOKENS_DIRECTORY_PATH = "tokens";
     private static final String DOCUMENT_ID = "195j9eDD3ccgjQRttHhJPymLJUCOUjs-jmwTrekvdjFE";
+    private static int total_req = -1;
 
     /**
      * Global instance of the scopes required by this quickstart.
@@ -77,9 +78,10 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
         return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
     }
 
-    public static String createFullDoc(ArrayList<ClassInstance> classes, CodeSponge.Settings settings, MainScreen mainScreen2) throws IOException, GeneralSecurityException {
+    public static String createFullDoc(ArrayList<ClassInstance> classes, CodeSponge.Settings settings, MainScreen mainScreen2, int total_req) throws IOException, GeneralSecurityException {
         mainScreen = mainScreen2;
 
+        DocsQuickstart.total_req = total_req;
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         Docs service = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
                 .setApplicationName(APPLICATION_NAME)
@@ -88,11 +90,13 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
         //creates the document
         String docId = createDoc(service);
 
-        for (ClassInstance c : classes) {
-            //loops through every class and creates two tables, one for the methods
-            //and one for the attributes
+        for (int i = 0; i < classes.size(); i++) {
+            ClassInstance c = classes.get(i);
+
+            mainScreen.updateFileContents(i);
 
             createEntireTableTemplate(docId, service, c, settings);
+
         }
 
         return docId;
@@ -101,7 +105,7 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
     public static void add_requests(List<Request> requests, Docs service, String docID) throws IOException {
         number_of_requests += requests.size();
 
-        if (number_of_requests > 500) {
+        if (number_of_requests > MAX_REQUESTS_PER_MINUTE) {
             System.out.println("Sleeping for a minute");
         }
 
@@ -116,12 +120,13 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
 
                 if (System.currentTimeMillis() - current_time > 60000) {
                     System.out.println("Exceeded max requests per minute");
+                    total_req -= number_of_requests;
                     number_of_requests = 0;
                 }
             }
         }
         System.out.println(" this is the request count " + number_of_requests);
-        mainScreen.updateCurrentAction("Updating doc \nRequests: " + number_of_requests);
+        mainScreen.updateCurrentAction("Updating doc \nRequests: " + number_of_requests + "/" + DocsQuickstart.total_req);
 
         BatchUpdateDocumentRequest batchUpdateRequest = new BatchUpdateDocumentRequest().setRequests(requests);
         BatchUpdateDocumentResponse batchUpdateResponse = service.documents().batchUpdate(docID, batchUpdateRequest).execute();
@@ -170,7 +175,7 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
         int tableIndex = tableAddIndex + 1;
         int cellOneIndex = tableIndex + 3;
 
-        //The google docs api recommends a method of requests called 'writting backwards'
+        //The Google Docs api recommends a method of requests called 'writing backwards'
         //because the indexes increment when something is added it makes adding things in order
         //more difficult as if you add 'hello' to index 1 and then try to add 'goodbye' to index 2
         //it will create 'hgoodbyeello' as the next index should instead be 1 + len('hello') = 6
@@ -249,7 +254,7 @@ public /* this is a comment badly placed */ class DocsQuickstart { //this is a c
         String classNameHeader = cI.getName() +
                 (cI.getInnerTo() != null ? " inner class to " + cI.getInnerTo() : "") +
                 (cI.getExtendedClass() != null ? " extends " + cI.getExtendedClass() : "") +
-                (cI.getImplementedInterfaces().size() > 0 ? " implements " + String.join(", ", cI.getImplementedInterfaces()) : "");
+                (!cI.getImplementedInterfaces().isEmpty() ? " implements " + String.join(", ", cI.getImplementedInterfaces()) : "");
 
         requests.addAll(Objects.requireNonNull(addClassName(classNameHeader, 2)));
 
