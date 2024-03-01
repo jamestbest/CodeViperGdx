@@ -403,14 +403,7 @@ public class MainScreen implements Screen {
     }
 
     public String getJavaDir(){
-        JFileChooser fileChooser = new JFileChooser(){
-            public void approveSelection() {
-                if (getSelectedFile().isFile()) {
-                    super.approveSelection();
-                } else
-                    super.approveSelection();
-            }
-        };
+        JFileChooser fileChooser = new JFileChooser();
         fileChooser.setCurrentDirectory(new File("C:\\Users\\jamescoward\\Desktop\\Java\\MrWilordFour\\core\\src\\com\\mygdx\\game\\Screens\\GameScreen.java"));
         fileChooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
         fileChooser.showDialog(new JList<>(), "Select a directory");
